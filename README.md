@@ -107,6 +107,7 @@ type TraePluginOptions = {
   openaiApiKey?: string
   modelName?: string
   enableToolCalling?: boolean
+  enableBufferedRetries?: boolean
   allowCliFallback?: boolean
   cliPath?: string
 }
@@ -117,6 +118,7 @@ type TraePluginOptions = {
 - `openaiApiKey`: bearer token for the OpenAI-compatible endpoint.
 - `modelName`: force a Trae `model.name` regardless of opencode model id. Leave unset to use the selected opencode model id directly.
 - `enableToolCalling`: defaults to `true`; when `true`, provider forwards Trae `function` tool calls to OpenCode.
+- `enableBufferedRetries`: defaults to `false`, preserving real-time text streaming. When enabled for tool-capable turns, text is buffered while a completion judge may retry an incomplete response.
 - `allowCliFallback`: defaults to `false`. Keep it false for real OpenCode usage; set true only to debug the legacy `traecli` subprocess path.
 - `cliPath`: legacy only; override the `traecli` binary path when `allowCliFallback=true`.
 

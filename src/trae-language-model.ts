@@ -335,6 +335,7 @@ async function streamTraeRawTransport(args: {
   })
   let textStarted = false
   const toolCalls = new Map<number, { id: string; name: string; input: string }>()
+  const bufferTextForRetries = shouldBufferTextForRetries(args.options, args.providerOptions)
   let attempt = 0
   let transportOptions = withTransportPromptGuidance(args.options, args.providerOptions)
   while (attempt < 3) {
@@ -358,8 +359,16 @@ async function streamTraeRawTransport(args: {
       if (event.type === 'text-delta') {
         sawRawOutput = true
         sawOutput = true
-        attemptText += event.delta
-        bufferedTextDeltas.push(event.delta)
+        if (bufferTextForRetries) {
+          attemptText += event.delta
+          bufferedTextDeltas.push(event.delta)
+        } else {
+          if (!textStarted) {
+            args.controller.enqueue({ type: 'text-start', id: 'trae-0' })
+            textStarted = true
+          }
+          args.controller.enqueue({ type: 'text-delta', id: 'trae-0', delta: event.delta })
+        }
         continue
       }
       if (event.type === 'tool-call-delta') {
@@ -377,7 +386,7 @@ async function streamTraeRawTransport(args: {
           retried = true
           break
         }
-        const judgeDecision = attemptText.trim()
+        const judgeDecision = bufferTextForRetries && attemptText.trim()
           ? await judgeCompletionViaRawTransport({
             options: args.options,
             providerOptions: args.providerOptions,
@@ -385,20 +394,22 @@ async function streamTraeRawTransport(args: {
             assistantText: attemptText,
           })
           : undefined
-        const stopRetry = shouldRetryStoppedActionTurn({
-          options: args.options,
-          text: attemptText,
-          finishReason: event.finishReason,
-          sawOutput,
-          toolCalls: toolCalls.size,
-          judgeDecision,
-        })
-        if (stopRetry.shouldRetry && stopRetry.retryPrompt) {
+        const stopRetry = bufferTextForRetries
+          ? shouldRetryStoppedActionTurn({
+              options: args.options,
+              text: attemptText,
+              finishReason: event.finishReason,
+              sawOutput,
+              toolCalls: toolCalls.size,
+              judgeDecision,
+            })
+          : undefined
+        if (stopRetry?.shouldRetry && stopRetry.retryPrompt) {
           transportOptions = withTransportPromptGuidance(stopRetry.retryPrompt, args.providerOptions)
           retried = true
           break
         }
-        if (bufferedTextDeltas.length > 0) {
+        if (bufferTextForRetries && bufferedTextDeltas.length > 0) {
           if (!textStarted) {
             args.controller.enqueue({ type: 'text-start', id: 'trae-0' })
             textStarted = true
@@ -448,6 +459,7 @@ async function streamOpenAITransport(args: {
   })
   let textStarted = false
   const toolCalls = new Map<number, { id: string; name: string; input: string }>()
+  const bufferTextForRetries = shouldBufferTextForRetries(args.options, args.providerOptions)
   let transportOptions = withTransportPromptGuidance(args.options, args.providerOptions)
   let attempt = 0
   while (attempt < 2) {
@@ -463,8 +475,16 @@ async function streamOpenAITransport(args: {
       abortSignal: args.options.abortSignal,
     }, transportOptions)) {
       if (event.type === 'text-delta') {
-        attemptText += event.delta
-        bufferedTextDeltas.push(event.delta)
+        if (bufferTextForRetries) {
+          attemptText += event.delta
+          bufferedTextDeltas.push(event.delta)
+        } else {
+          if (!textStarted) {
+            args.controller.enqueue({ type: 'text-start', id: 'trae-0' })
+            textStarted = true
+          }
+          args.controller.enqueue({ type: 'text-delta', id: 'trae-0', delta: event.delta })
+        }
         continue
       }
       if (event.type === 'tool-call-delta') {
@@ -472,7 +492,7 @@ async function streamOpenAITransport(args: {
         continue
       }
       if (event.type === 'finish') {
-        const judgeDecision = attemptText.trim()
+        const judgeDecision = bufferTextForRetries && attemptText.trim()
           ? await judgeCompletionViaOpenAITransport({
             options: args.options,
             providerOptions: args.providerOptions,
@@ -481,20 +501,22 @@ async function streamOpenAITransport(args: {
             assistantText: attemptText,
           })
           : undefined
-        const stopRetry = shouldRetryStoppedActionTurn({
-          options: args.options,
-          text: attemptText,
-          finishReason: event.finishReason,
-          sawOutput: attemptText.length > 0,
-          toolCalls: toolCalls.size,
-          judgeDecision,
-        })
-        if (stopRetry.shouldRetry && stopRetry.retryPrompt) {
+        const stopRetry = bufferTextForRetries
+          ? shouldRetryStoppedActionTurn({
+              options: args.options,
+              text: attemptText,
+              finishReason: event.finishReason,
+              sawOutput: attemptText.length > 0,
+              toolCalls: toolCalls.size,
+              judgeDecision,
+            })
+          : undefined
+        if (stopRetry?.shouldRetry && stopRetry.retryPrompt) {
           transportOptions = withTransportPromptGuidance(stopRetry.retryPrompt, args.providerOptions)
           retried = true
           break
         }
-        if (bufferedTextDeltas.length > 0) {
+        if (bufferTextForRetries && bufferedTextDeltas.length > 0) {
           if (!textStarted) {
             args.controller.enqueue({ type: 'text-start', id: 'trae-0' })
             textStarted = true
@@ -528,6 +550,15 @@ async function streamOpenAITransport(args: {
     attempt += 1
     textStarted = false
   }
+}
+
+function shouldBufferTextForRetries(
+  options: LanguageModelV2CallOptions,
+  providerOptions: TraeProviderOptions,
+): boolean {
+  return providerOptions.enableBufferedRetries === true
+    && providerOptions.enableToolCalling === true
+    && listToolNames(options.tools).length > 0
 }
 
 function withTransportPromptGuidance(

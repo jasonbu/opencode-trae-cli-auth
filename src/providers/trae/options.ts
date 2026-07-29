@@ -13,6 +13,7 @@ export type TraeProviderOptions = {
   modelName?: string
   modelAliases?: Record<string, string>
   enableToolCalling?: boolean
+  enableBufferedRetries?: boolean
   queryTimeout?: number
   includeToolHistory?: boolean
   maxPromptMessages?: number

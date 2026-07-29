@@ -10,6 +10,30 @@ vi.mock('node:child_process', () => ({
   spawn: spawnMock,
 }))
 
+function createControlledSseResponse(firstChunk: string, remainingChunk: string) {
+  const encoder = new TextEncoder()
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(firstChunk))
+      void gate.then(() => {
+        controller.enqueue(encoder.encode(remainingChunk))
+        controller.close()
+      })
+    },
+  })
+  return {
+    response: new Response(body, {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    }),
+    release,
+  }
+}
+
 describe('TraeLanguageModel', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -123,6 +147,53 @@ cliPath: '/usr/bin/traecli',
       outputTokens: 2,
       totalTokens: 5,
     })
+  })
+
+  it('forwards OpenAI-compatible text before the upstream stream finishes by default', async () => {
+    const controlled = createControlledSseResponse(
+      'data: {"choices":[{"delta":{"content":"hel"}}]}\n\n',
+      [
+        'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"stop"}]}\n\n',
+        'data: [DONE]\n\n',
+      ].join(''),
+    )
+    const fetchMock = vi.fn(async () => controlled.response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { TraeLanguageModel } = await import('../src/trae-language-model.js')
+    const model = new TraeLanguageModel('GLM-5.1', {
+      openaiBaseURL: 'https://example.test/v1',
+      openaiApiKey: 'test-key',
+      enableToolCalling: true,
+    } as any)
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      tools: [{ type: 'function', name: 'read', inputSchema: { type: 'object', properties: { filePath: { type: 'string' } } } }],
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'say hello' }] }],
+    } as any)
+    const reader = stream.getReader()
+
+    try {
+      expect((await reader.read()).value).toMatchObject({ type: 'stream-start' })
+      expect((await reader.read()).value).toMatchObject({ type: 'response-metadata' })
+      expect((await reader.read()).value).toMatchObject({ type: 'text-start' })
+      expect((await reader.read()).value).toMatchObject({ type: 'text-delta', delta: 'hel' })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      controlled.release()
+    }
+
+    const remainingParts: any[] = []
+    for (;;) {
+      const part = await reader.read()
+      if (part.done) break
+      remainingParts.push(part.value)
+    }
+    expect(remainingParts.filter((part) => part.type === 'text-delta').map((part) => part.delta).join('')).toBe('lo')
+    expect(remainingParts.at(-1)).toMatchObject({ type: 'finish', finishReason: 'stop' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('converts OpenAI-compatible streamed tool calls into OpenCode tool-call parts', async () => {
@@ -283,6 +354,49 @@ cliPath: '/usr/bin/traecli',
       outputTokens: 2,
       totalTokens: 5,
     })
+  })
+
+  it('forwards raw Trae text before the upstream stream finishes by default', async () => {
+    const controlled = createControlledSseResponse(
+      'event: output\ndata: {"response":"hel","tool_calls":null}\n\n',
+      'event: output\ndata: {"response":"hello","tool_calls":null}\n\n',
+    )
+    const fetchMock = vi.fn(async () => controlled.response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { TraeLanguageModel } = await import('../src/trae-language-model.js')
+    const model = new TraeLanguageModel('GLM-5.1', {
+      traeRawBaseURL: 'https://api.enterprise.trae.cn',
+      traeRawApiKey: 'test-key',
+      enableToolCalling: true,
+    } as any)
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      tools: [{ type: 'function', name: 'read', inputSchema: { type: 'object', properties: { filePath: { type: 'string' } } } }],
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'say hello' }] }],
+    } as any)
+    const reader = stream.getReader()
+
+    try {
+      expect((await reader.read()).value).toMatchObject({ type: 'stream-start' })
+      expect((await reader.read()).value).toMatchObject({ type: 'response-metadata' })
+      expect((await reader.read()).value).toMatchObject({ type: 'text-start' })
+      expect((await reader.read()).value).toMatchObject({ type: 'text-delta', delta: 'hel' })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      controlled.release()
+    }
+
+    const remainingParts: any[] = []
+    for (;;) {
+      const part = await reader.read()
+      if (part.done) break
+      remainingParts.push(part.value)
+    }
+    expect(remainingParts.filter((part) => part.type === 'text-delta').map((part) => part.delta).join('')).toBe('lo')
+    expect(remainingParts.at(-1)).toMatchObject({ type: 'finish', finishReason: 'stop' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('sends OpenCode tool results back to Trae raw chat instead of an empty fallback prompt', async () => {
@@ -682,6 +796,7 @@ cliPath: '/usr/bin/traecli',
       traeRawBaseURL: 'https://api.enterprise.trae.cn',
       traeRawApiKey: 'test-key',
       enableToolCalling: true,
+      enableBufferedRetries: true,
     } as any)
 
     const parts: any[] = []
@@ -728,6 +843,7 @@ cliPath: '/usr/bin/traecli',
       traeRawBaseURL: 'https://api.enterprise.trae.cn',
       traeRawApiKey: 'test-key',
       enableToolCalling: true,
+      enableBufferedRetries: true,
     } as any)
 
     const parts: any[] = []
@@ -768,6 +884,7 @@ cliPath: '/usr/bin/traecli',
       traeRawBaseURL: 'https://api.enterprise.trae.cn',
       traeRawApiKey: 'test-key',
       enableToolCalling: true,
+      enableBufferedRetries: true,
     } as any)
 
     const parts: any[] = []
@@ -807,6 +924,7 @@ cliPath: '/usr/bin/traecli',
       traeRawBaseURL: 'https://api.enterprise.trae.cn',
       traeRawApiKey: 'test-key',
       enableToolCalling: true,
+      enableBufferedRetries: true,
     } as any)
 
     const parts: any[] = []
@@ -839,6 +957,7 @@ cliPath: '/usr/bin/traecli',
       traeRawBaseURL: 'https://api.enterprise.trae.cn',
       traeRawApiKey: 'test-key',
       enableToolCalling: true,
+      enableBufferedRetries: true,
       sessionId: 'main-session',
     } as any)
 

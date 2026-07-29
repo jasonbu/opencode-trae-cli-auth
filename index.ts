@@ -12,6 +12,7 @@ type TraePluginOptions = {
   openaiApiKey?: string
   modelName?: string
   enableToolCalling?: boolean
+  enableBufferedRetries?: boolean
 }
 
 export const TraeProviderPlugin: Plugin<TraePluginOptions> = async (options = {}) => {
@@ -46,6 +47,7 @@ export const TraeProviderPlugin: Plugin<TraePluginOptions> = async (options = {}
           ...(effectiveOptions.openaiApiKey ? { openaiApiKey: effectiveOptions.openaiApiKey } : {}),
           ...(effectiveOptions.modelName ? { modelName: effectiveOptions.modelName } : {}),
           ...(typeof effectiveOptions.enableToolCalling === 'boolean' ? { enableToolCalling: effectiveOptions.enableToolCalling } : {}),
+          ...(typeof effectiveOptions.enableBufferedRetries === 'boolean' ? { enableBufferedRetries: effectiveOptions.enableBufferedRetries } : {}),
         },
         models: mergedModels,
       }
@@ -120,5 +122,6 @@ function withDefaultOptions(options: TraePluginOptions): TraePluginOptions {
   return {
     ...options,
     enableToolCalling: options.enableToolCalling ?? true,
+    enableBufferedRetries: options.enableBufferedRetries ?? false,
   }
 }

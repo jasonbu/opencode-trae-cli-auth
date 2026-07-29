@@ -42,6 +42,7 @@ describe('TraeProviderPlugin', () => {
       openaiBaseURL: 'https://example.test/v1',
       openaiApiKey: 'test-key',
       enableToolCalling: true,
+      enableBufferedRetries: true,
       allowCliFallback: true,
       cliPath: '/custom/traecli',
       modelName: 'Kimi-K2.6',
@@ -67,6 +68,7 @@ describe('TraeProviderPlugin', () => {
       openaiApiKey: 'test-key',
       modelName: 'Kimi-K2.6',
       enableToolCalling: true,
+      enableBufferedRetries: true,
     })
   })
 
@@ -84,6 +86,7 @@ describe('TraeProviderPlugin', () => {
 
     expect(config.provider?.trae?.options?.allowCliFallback).toBe(false)
     expect(config.provider?.trae?.options?.cliPath).toBeUndefined()
+    expect(config.provider?.trae?.options?.enableBufferedRetries).toBe(false)
   })
 
   it('does not read OpenAI-compatible transport tokens from environment variables', async () => {
