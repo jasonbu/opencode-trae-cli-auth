@@ -34,11 +34,19 @@ describe('trae models', () => {
     expect(TRAE_CLOUD_MODEL_IDS).toEqual([
       'Doubao-Seed-Code',
       'GLM-5.1',
+      'GLM-5.2',
       'MiniMax-M2.7',
       'Kimi-K2.6',
+      'Kimi-K2.7-Code',
       'DeepSeek-V4-Pro',
+      'Qwen3.7-Plus',
     ])
     expect(TRAE_CLOUD_MODEL_IDS).toContain('GLM-5.1')
+    expect(TRAE_CLOUD_MODEL_IDS).toEqual(expect.arrayContaining([
+      'GLM-5.2',
+      'Kimi-K2.7-Code',
+      'Qwen3.7-Plus',
+    ]))
     expect(TRAE_CLOUD_MODEL_IDS).not.toContain('DeepSeek-V3.1-Terminus')
     expect(TRAE_CLOUD_MODEL_IDS).not.toContain('Doubao-Seed-2.0-Code')
     for (const id of TRAE_CLOUD_MODEL_IDS) {

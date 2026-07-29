@@ -390,8 +390,11 @@ function resolveTraeRawModel(options: TraeRawTransportOptions): { configName: st
 const KNOWN_RAW_MODEL_CONFIGS: Record<string, { configName: string; rawModelName: string; displayName?: string }> = {
   'coding': { configName: 'glm-5.1', rawModelName: 'glm-5__v2', displayName: 'GLM-5.1' },
   'glm-5.1': { configName: 'glm-5.1', rawModelName: 'glm-5__v2', displayName: 'GLM-5.1' },
+  'glm-5.2': { configName: 'glm-5.2', rawModelName: 'glm-5.2__dev', displayName: 'GLM-5.2' },
   'kimi-k2.6': { configName: 'kimi-k2.6', rawModelName: 'kimi-k2.6__v2', displayName: 'Kimi-K2.6' },
+  'kimi-k2.7-code': { configName: 'kimi-k2.7-code', rawModelName: 'kimi-k2.7-code__dev', displayName: 'Kimi-K2.7-Code' },
   'deepseek-v4-pro': { configName: 'deepseek-V4-Pro', rawModelName: 'deepseek-V4-Pro__v2', displayName: 'DeepSeek-V4-Pro' },
+  'qwen3.7-plus': { configName: 'qwen-3.7-plus', rawModelName: 'qwen-3.7-plus__dev', displayName: 'Qwen3.7-Plus' },
 }
 
 function normalizeConfigName(name: string): string {
@@ -404,8 +407,11 @@ function normalizeConfigName(name: string): string {
 
 function defaultRawModelName(configName: string): string {
   if (configName === 'glm-5.1') return 'glm-5__v2'
+  if (configName === 'glm-5.2') return 'glm-5.2__dev'
   if (configName === 'kimi-k2.6') return 'kimi-k2.6__v2'
+  if (configName === 'kimi-k2.7-code') return 'kimi-k2.7-code__dev'
   if (configName === 'deepseek-V4-Pro') return 'deepseek-V4-Pro__v2'
+  if (configName === 'qwen-3.7-plus') return 'qwen-3.7-plus__dev'
   return configName
 }
 

@@ -20,9 +20,12 @@ export interface TraeModelDefinition {
 export const TRAE_CLOUD_MODEL_IDS = [
   'Doubao-Seed-Code',
   'GLM-5.1',
+  'GLM-5.2',
   'MiniMax-M2.7',
   'Kimi-K2.6',
+  'Kimi-K2.7-Code',
   'DeepSeek-V4-Pro',
+  'Qwen3.7-Plus',
 ] as const
 
 const TEXT_ONLY_CAPABILITIES = {

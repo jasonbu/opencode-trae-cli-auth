@@ -10,7 +10,7 @@ It is intended to make Trae act as an LLM backend for opencode. For coding workf
 - Prefers direct Trae raw-chat SSE streaming when `pat` is configured.
 - Supports generic OpenAI-compatible streaming when `openaiBaseURL` and `openaiApiKey` are configured.
 - Disables legacy `traecli` fallback by default to avoid CLI-internal tool restrictions leaking into OpenCode.
-- Exposes common Trae cloud models, including `GLM-5.1`, `Doubao-Seed-2.0-Code`, `DeepSeek-V3.2`, `Qwen3-Coder-Next`, and more.
+- Exposes common Trae cloud models, including `GLM-5.2`, `Kimi-K2.7-Code`, `Qwen3.7-Plus`, and more.
 - Reads the current model from `~/.trae/trae_cli.yaml` / `~/.trae/traecli.yaml` when available.
 - Provides stable text-first generation and an optional experimental tool-call bridge for coding workflows.
 - Supports local `file://` plugin installs for development.
@@ -71,9 +71,12 @@ Built-in model ids currently include:
 
 - `trae/Doubao-Seed-Code`
 - `trae/GLM-5.1`
+- `trae/GLM-5.2`
 - `trae/MiniMax-M2.7`
 - `trae/Kimi-K2.6`
+- `trae/Kimi-K2.7-Code`
 - `trae/DeepSeek-V4-Pro`
+- `trae/Qwen3.7-Plus`
 
 ## Usage
 

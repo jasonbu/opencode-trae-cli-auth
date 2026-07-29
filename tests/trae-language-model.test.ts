@@ -366,6 +366,62 @@ cliPath: '/usr/bin/traecli',
     })
   })
 
+  it.each([
+    {
+      modelId: 'GLM-5.2',
+      configName: 'glm-5.2',
+      rawModelName: 'glm-5.2__dev',
+    },
+    {
+      modelId: 'Kimi-K2.7-Code',
+      configName: 'kimi-k2.7-code',
+      rawModelName: 'kimi-k2.7-code__dev',
+    },
+    {
+      modelId: 'Qwen3.7-Plus',
+      configName: 'qwen-3.7-plus',
+      rawModelName: 'qwen-3.7-plus__dev',
+    },
+  ])('maps $modelId to its raw Trae model identifiers', async ({
+    modelId,
+    configName,
+    rawModelName,
+  }) => {
+    const fetchMock = vi.fn(async () => new Response(
+      'event: output\ndata: {"response":"ok","tool_calls":null}\n\n',
+      {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      },
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { TraeLanguageModel } = await import('../src/trae-language-model.js')
+    const model = new TraeLanguageModel(modelId, {
+      traeRawBaseURL: 'https://api.enterprise.trae.cn',
+      traeRawApiKey: 'test-key',
+    } as any)
+
+    for await (const _part of (await model.doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'ping' }] }],
+    } as any)).stream as any) {
+      // drain stream
+    }
+
+    const headers = fetchMock.mock.calls[0][1].headers
+    expect(JSON.parse(headers.Extra)).toMatchObject({
+      config_name: configName,
+      display_name: modelId,
+      model_name: rawModelName,
+    })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      config_name: configName,
+      model_name: rawModelName,
+    })
+  })
+
   it('maps DeepSeek-V4-Pro to the raw Trae model identifiers', async () => {
     const fetchMock = vi.fn(async () => new Response(
       'event: output\ndata: {"response":"ok","tool_calls":null}\n\n',
